@@ -1,5 +1,13 @@
-import streamlit as st
+import sys
 import os
+from pathlib import Path
+
+# Add project root directory to Python path for Streamlit Cloud imports
+ROOT_DIR = Path(__file__).resolve().parent.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.append(str(ROOT_DIR))
+
+import streamlit as st
 from app.mock_data import MOCK_DEALS
 from app.engine import evaluate_deal_risk
 from app.models import DealContext
