@@ -1,24 +1,7 @@
-import sys
-import os
-from pathlib import Path
-
-# Force the project root directory into sys.path at index 0
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
-
 import streamlit as st
-
-# Local imports after setting sys.path
-try:
-    from app.mock_data import MOCK_DEALS
-    from app.engine import evaluate_deal_risk
-    from app.models import DealContext
-except ModuleNotFoundError:
-    # Fallback import mechanism for isolated execution contexts
-    from deal_rescue_agent.app.mock_data import MOCK_DEALS
-    from deal_rescue_agent.app.engine import evaluate_deal_risk
-    from deal_rescue_agent.app.models import DealContext
+from app.mock_data import MOCK_DEALS
+from app.engine import evaluate_deal_risk
+from app.models import DealContext
 
 st.set_page_config(page_title="Mindtickle AI Deal Copilot", layout="wide", page_icon="🎯")
 
