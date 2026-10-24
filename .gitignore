@@ -1,0 +1,14 @@
+# Environment Variables & Secrets
+.env
+*.env
+
+# Python Virtual Environment & Caches
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Docker & OS Files
+wheels/
+.DS_Store
+Thumbs.db

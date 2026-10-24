@@ -1,0 +1,13 @@
+services:
+  deal-rescue-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      network: host
+    ports:
+      - "8000:8000"
+      - "8501:8501"
+    environment:
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - API_BASE_URL=http://localhost:8000
+    restart: always
