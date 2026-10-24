@@ -1,8 +1,8 @@
 import streamlit as st
-import requests
 import os
-
-API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
+from app.mock_data import MOCK_DEALS
+from app.engine import evaluate_deal_risk
+from app.models import DealContext
 
 st.set_page_config(page_title="Mindtickle AI Deal Copilot", layout="wide", page_icon="🎯")
 
@@ -30,14 +30,6 @@ with st.sidebar.form("upload_call_form"):
     
     submit_call = st.form_submit_button("⚡ Run RAG Risk Analysis")
 
-# Fetch CRM Synced Deals
-try:
-    response = requests.get(f"{API_BASE_URL}/api/deals")
-    deals = response.json()
-except Exception as e:
-    st.error(f"Failed to connect to API backend at {API_BASE_URL}. Ensure the FastAPI server is running.")
-    st.stop()
-
 # Handle Form Submission (File or Text Input)
 if submit_call:
     final_transcript = ""
@@ -47,23 +39,21 @@ if submit_call:
         final_transcript = pasted_transcript.strip()
         
     if final_transcript:
-        adhoc_payload = {
-            "deal_id": "DEAL-UPLOADED",
-            "account_name": account_input,
-            "rep_name": rep_input,
-            "deal_value": float(value_input),
-            "stage": stage_input,
-            "days_in_stage": int(days_input),
-            "transcript_snippet": final_transcript,
-            "additional_notes": notes_input
-        }
-        eval_resp = requests.post(f"{API_BASE_URL}/api/evaluate", json=adhoc_payload)
-        if eval_resp.status_code == 200:
-            st.session_state["selected_deal"] = adhoc_payload
-            st.session_state["selected_eval"] = eval_resp.json()
+        adhoc_deal = DealContext(
+            deal_id="DEAL-UPLOADED",
+            account_name=account_input,
+            rep_name=rep_input,
+            deal_value=float(value_input),
+            stage=stage_input,
+            days_in_stage=int(days_input),
+            transcript_snippet=final_transcript,
+            additional_notes=notes_input
+        )
+        with st.spinner("Analyzing call transcript using RAG Engine..."):
+            assessment = evaluate_deal_risk(adhoc_deal)
+            st.session_state["selected_deal"] = adhoc_deal.model_dump()
+            st.session_state["selected_eval"] = assessment.model_dump()
             st.sidebar.success(f"Analysis complete for {account_input}!")
-        else:
-            st.sidebar.error(f"API Error ({eval_resp.status_code}): {eval_resp.text}")
     else:
         st.sidebar.warning("Please upload a file or paste transcript text.")
 
@@ -71,24 +61,21 @@ col1, col2 = st.columns([1, 1])
 
 with col1:
     st.subheader("📋 CRM Pipeline Overview")
-    for deal in deals:
-        eval_resp = requests.post(f"{API_BASE_URL}/api/evaluate", json=deal)
+    for deal_dict in MOCK_DEALS:
+        deal = DealContext(**deal_dict)
+        assessment = evaluate_deal_risk(deal)
+        assessment_dict = assessment.model_dump()
+        risk_lvl = assessment_dict.get("risk_level", "Medium")
         
-        if eval_resp.status_code == 200:
-            assessment = eval_resp.json()
-            risk_lvl = assessment.get("risk_level", "Medium")
-            
-            if risk_lvl in risk_filter:
-                with st.expander(f"**{deal['account_name']}** | ${deal['deal_value']:,.0f} | Risk: {assessment.get('risk_score', 50)}/100 ({risk_lvl})"):
-                    st.write(f"**Rep:** {deal['rep_name']} | **Stage:** {deal['stage']} ({deal['days_in_stage']} days)")
-                    st.write(f"**Call Snippet:** *\"{deal['transcript_snippet']}\"*")
-                    if deal.get("additional_notes"):
-                        st.write(f"**Notes:** {deal['additional_notes']}")
-                    if st.button(f"View Playbook for {deal['account_name']}", key=deal['deal_id']):
-                        st.session_state["selected_deal"] = deal
-                        st.session_state["selected_eval"] = assessment
-        else:
-            st.error(f"Error evaluating deal {deal['account_name']}: {eval_resp.text}")
+        if risk_lvl in risk_filter:
+            with st.expander(f"**{deal.account_name}** | ${deal.deal_value:,.0f} | Risk: {assessment_dict.get('risk_score', 50)}/100 ({risk_lvl})"):
+                st.write(f"**Rep:** {deal.rep_name} | **Stage:** {deal.stage} ({deal.days_in_stage} days)")
+                st.write(f"**Call Snippet:** *\"{deal.transcript_snippet}\"*")
+                if deal.additional_notes:
+                    st.write(f"**Notes:** {deal.additional_notes}")
+                if st.button(f"View Playbook for {deal.account_name}", key=deal.deal_id):
+                    st.session_state["selected_deal"] = deal.model_dump()
+                    st.session_state["selected_eval"] = assessment_dict
 
 with col2:
     st.subheader("⚡ Grounded Manager Intervention Playbook")
